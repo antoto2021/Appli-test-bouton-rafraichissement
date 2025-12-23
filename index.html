@@ -190,10 +190,10 @@
         // ⚠️ ZONE DE CONFIGURATION UTILISATEUR ⚠️
         // ============================================================
         
-        const GITHUB_USERNAME = 'VOTRE_NOM_UTILISATEUR'; // ex: 'VotrePseudo'
-        const GITHUB_REPO     = 'VOTRE_NOM_REPO';        // ex: 'NomDuRepo'
+        const GITHUB_USERNAME = 'antoto2021'; // ex: 'VotrePseudo'
+        const GITHUB_REPO     = 'Appli-test-bouton-rafraichissement';        // ex: 'NomDuRepo'
         
-        const CHECK_DELAY     = 3 * 60 * 1000; // 3 minutes
+        const CHECK_DELAY     = 1 * 60 * 1000; // 3 minutes
 
         // ============================================================
 
@@ -231,7 +231,7 @@
                 console.log("Version locale : " + currentVersionDate);
             } catch (e) { console.log("Mode local/offline"); }
 
-            // Lancer le timer unique de 3 min
+            // Lancer le timer unique de 1 min
             setTimeout(checkForUpdates, CHECK_DELAY);
         }
 
