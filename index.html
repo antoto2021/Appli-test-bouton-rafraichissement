@@ -52,7 +52,7 @@
             z-index: 9000; gap: 10px;
         }
         #refreshBtn {
-            background-color: #1466b8; color: white; border: none; border-radius: 50%;
+            background-color: #4CAF50; color: white; border: none; border-radius: 50%;
             width: 60px; height: 60px; font-size: 35px; cursor: pointer;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center;
             padding: 0; margin: 0; line-height: 1; transition: background-color 0.3s, transform 0.2s;
@@ -124,16 +124,17 @@
 
     <!-- INTERFACE DE TEST -->
     <div class="app-card">
-        <h1>📲 App de Test</h1>
-        <p><strong>Cette page utilise l'API GitHub pour vérifier les mises à jour.</strong></p>
+        <h1>📲 App de Test (Storage)</h1>
+        <p>Utilise LocalStorage pour mémoriser la version.</p>
         
         <div class="status-box">
             <div id="debug-timer">⏳ Initialisation...</div>
-            <div id="debug-github">GitHub: Connexion...</div>
-            <div id="debug-version" style="margin-top:5px; border-top:1px solid #ccc; padding-top:5px;">Hash Local: ...</div>
+            <div id="debug-storage">Mémoire : Vérification...</div>
+            <div id="debug-github">GitHub: En attente...</div>
         </div>
         
         <button class="sim-btn" onclick="triggerUpdateUI()">🔔 Simuler Alerte</button>
+        <button class="sim-btn" onclick="localStorage.removeItem('app_last_hash'); alert('Mémoire effacée ! Rechargez.')" style="background-color: #ef4444;">🗑️ Reset Mémoire</button>
     </div>
 
     <!-- MODULE UPDATE -->
@@ -169,125 +170,153 @@
         const GITHUB_USERNAME = 'antoto2021'; 
         const GITHUB_REPO     = 'Appli-test-bouton-rafraichissement';        
         
-        const CHECK_DELAY     = 1 * 60 * 1000; // 1 minute
+        // Délai avant vérification (1 minute pour le test)
+        const CHECK_DELAY     = 1 * 60 * 1000; 
+        
+        // Clé de stockage dans le téléphone
+        const STORAGE_KEY     = 'app_last_hash';
 
         // ============================================================
 
         let activeUpdates = [{ icon: "🚀", title: "Mise à jour", desc: "Notes de version non trouvées." }];
         let currentSlide = 0;
-        let initialCommitHash = null; // Stocke le hash du commit au lancement
         let timerInterval = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
+            const isPostUpdate = urlParams.has('v');
 
-            // 1. Initialiser la surveillance via API GitHub
-            initGitHubMonitor();
+            // 1. Démarrer le compte à rebours de vérification
+            startUpdateCheckTimer();
 
-            // 2. Ouvrir le popup si update manuelle récente
-            if (urlParams.has('v')) { 
-                initWhatsNewPopup();
+            // 2. Si on vient de faire une mise à jour (clic sur refresh)
+            if (isPostUpdate) {
+                // On lance le processus post-update (Pop-up + Sauvegarde nouveau Hash)
+                handlePostUpdate();
             }
         });
 
         // ============================================================
-        // PARTIE 1 : SURVEILLANCE VIA API GITHUB
+        // PARTIE 1 : VÉRIFICATION (TIMER + STORAGE)
         // ============================================================
 
-        async function initGitHubMonitor() {
-            const timerEl = document.getElementById('debug-timer');
-            const versionEl = document.getElementById('debug-version');
-
-            // Étape A : Récupérer le Hash actuel (Baseline)
-            try {
-                timerEl.innerText = "⏳ Récupération version actuelle...";
-                // On appelle l'API tout de suite pour savoir sur quelle version on est
-                const commit = await fetchLatestCommit();
-                if(commit) {
-                    initialCommitHash = commit.sha;
-                    versionEl.innerText = "Hash Local : " + initialCommitHash.substring(0, 7);
-                    console.log("Version de départ : " + initialCommitHash);
-                }
-            } catch(e) {
-                console.error("Erreur init:", e);
-                versionEl.innerText = "Hash Local : Erreur";
-            }
-
-            // Étape B : Lancer le compte à rebours de 1 minute
+        function startUpdateCheckTimer() {
             let secondsLeft = CHECK_DELAY / 1000;
+            const timerEl = document.getElementById('debug-timer');
             
+            // Affichage initial de la mémoire
+            const storedHash = localStorage.getItem(STORAGE_KEY);
+            document.getElementById('debug-storage').innerText = storedHash 
+                ? `Mémoire : ${storedHash.substring(0,7)}` 
+                : "Mémoire : Vide (Premier lancement)";
+
             timerInterval = setInterval(() => {
                 secondsLeft--;
-                timerEl.innerText = `⏳ Prochaine vérification API : ${secondsLeft}s`;
+                timerEl.innerText = `⏳ Vérif dans : ${secondsLeft}s`;
                 
                 if(secondsLeft <= 0) {
                     clearInterval(timerInterval);
-                    timerEl.innerText = "🔍 Appel API GitHub en cours...";
-                    checkGitHubForUpdates();
+                    timerEl.innerText = "🔍 Vérification GitHub...";
+                    checkGitHubStatus();
                 }
             }, 1000);
         }
 
-        async function checkGitHubForUpdates() {
-            const versionEl = document.getElementById('debug-version');
+        async function checkGitHubStatus() {
+            // 1. Récupérer le hash Distant (GitHub)
+            const remoteCommit = await fetchLatestCommit();
+            if (!remoteCommit) return;
+
+            const remoteHash = remoteCommit.sha;
+            const storedHash = localStorage.getItem(STORAGE_KEY);
+            const debugStorage = document.getElementById('debug-storage');
+
+            debugStorage.innerText = `Local: ${storedHash ? storedHash.substring(0,7) : 'Aucun'} | Remote: ${remoteHash.substring(0,7)}`;
+
+            // 2. Logique de comparaison
+            if (!storedHash) {
+                // Cas A : Premier lancement (ou cache vidé)
+                // On ne force pas la maj, on enregistre juste l'état actuel pour la prochaine fois
+                console.log("Premier lancement détecté. Sauvegarde du hash.");
+                localStorage.setItem(STORAGE_KEY, remoteHash);
+                debugStorage.innerText += " (Sauvegardé)";
             
-            // On rappelle l'API pour voir s'il y a du nouveau
-            const latestCommit = await fetchLatestCommit();
-
-            if (latestCommit && initialCommitHash) {
-                versionEl.innerText += `\nHash Distant : ${latestCommit.sha.substring(0, 7)}`;
-
-                // COMPARAISON : Si le hash a changé, c'est qu'il y a une maj sur le serveur
-                if (latestCommit.sha !== initialCommitHash) {
-                    console.log("Différence de Hash détectée !");
-                    versionEl.innerText += " ✅ UPDATE DISPO";
-                    // C'est ICI qu'on déclenche l'alerte
-                    triggerUpdateUI();
-                    
-                    // Optionnel : on pré-charge les notes de version pour le popup
-                    const parsed = parseCommitMessage(latestCommit.commit.message);
-                    if(parsed.length > 0) activeUpdates = parsed;
-
-                } else {
-                    console.log("Hashs identiques. Pas de maj.");
-                    versionEl.innerText += " ❌ À jour";
-                }
+            } else if (storedHash !== remoteHash) {
+                // Cas B : Différence détectée
+                console.log("Mise à jour disponible !");
+                debugStorage.innerText += " ⚠️ DIFFÉRENCE";
+                
+                // C'est ici qu'on demande à l'utilisateur de cliquer
+                triggerUpdateUI();
+                
+                // Pré-chargement des notes de version (silencieux)
+                const parsed = parseCommitMessage(remoteCommit.commit.message);
+                if(parsed.length > 0) activeUpdates = parsed;
+            } else {
+                // Cas C : Tout est à jour
+                console.log("Application à jour.");
+                debugStorage.innerText += " ✅ OK";
             }
         }
 
-        // Fonction utilitaire pour appeler l'API
+        // ============================================================
+        // PARTIE 2 : POST-UPDATE (POP-UP + SAUVEGARDE)
+        // ============================================================
+
+        async function handlePostUpdate() {
+            // Ouvrir le popup immédiatement
+            const overlay = document.getElementById('wn-overlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.classList.add('show-modal'), 10);
+
+            // Récupérer les infos sur GitHub pour remplir le popup ET mettre à jour le stockage
+            const commit = await fetchLatestCommit();
+            
+            if (commit) {
+                // 1. Sauvegarder le NOUVEAU hash comme référence
+                localStorage.setItem(STORAGE_KEY, commit.sha);
+                console.log("Nouveau hash sauvegardé après maj : " + commit.sha);
+                document.getElementById('debug-storage').innerText = `Mémoire MAJ : ${commit.sha.substring(0,7)}`;
+
+                // 2. Remplir le popup
+                const parsed = parseCommitMessage(commit.commit.message);
+                if (parsed.length > 0) activeUpdates = parsed;
+            }
+
+            renderSlides();
+            updateSlideUI();
+            document.getElementById('wn-btn').style.display = 'flex';
+        }
+
+        // --- OUTILS API GITHUB ---
+
         async function fetchLatestCommit() {
             const debugGithub = document.getElementById('debug-github');
             if(GITHUB_USERNAME === 'VOTRE_NOM_UTILISATEUR') {
-                debugGithub.innerText = "⚠️ Config manquante";
-                return null;
+                debugGithub.innerText = "⚠️ Config manquante"; return null;
             }
             try {
-                // Ajout d'un timestamp pour éviter le cache de l'API fetch
                 const response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits?per_page=1&t=${Date.now()}`);
                 if (!response.ok) throw new Error("Erreur API");
                 const data = await response.json();
                 debugGithub.innerText = "GitHub API : OK";
                 debugGithub.style.color = "green";
-                return data[0]; // Retourne l'objet commit complet
+                return data[0];
             } catch (error) {
                 console.error(error);
                 debugGithub.innerText = "GitHub API : Erreur";
-                debugGithub.style.color = "red";
                 return null;
             }
         }
+
+        // --- UI UTILS ---
 
         function triggerUpdateUI() {
             const dot = document.getElementById('updateDot');
             const alertBox = document.getElementById('updateAlert');
             const arrow = document.querySelector('.arrow-pointer');
-
-            // Force l'affichage
             dot.style.display = 'block';
             alertBox.style.display = 'flex';
-            
-            // Force l'animation
             arrow.classList.remove('bouncing');
             void arrow.offsetWidth; 
             arrow.classList.add('bouncing');
@@ -302,26 +331,7 @@
             }, 500);
         }
 
-        // ============================================================
-        // PARTIE 2 : SYSTÈME POP-UP (WHAT'S NEW)
-        // ============================================================
-
-        async function initWhatsNewPopup() {
-            const overlay = document.getElementById('wn-overlay');
-            overlay.style.display = 'flex';
-            setTimeout(() => overlay.classList.add('show-modal'), 10);
-
-            // On récupère le commit pour afficher les infos (si pas déjà fait)
-            const commit = await fetchLatestCommit();
-            if(commit) {
-                const parsed = parseCommitMessage(commit.commit.message);
-                if (parsed.length > 0) activeUpdates = parsed;
-            }
-
-            renderSlides();
-            updateSlideUI();
-            document.getElementById('wn-btn').style.display = 'flex';
-        }
+        // --- POPUP SLIDES LOGIC (Restauré version complète) ---
 
         function parseCommitMessage(msg) {
             const lines = msg.split('\n');
