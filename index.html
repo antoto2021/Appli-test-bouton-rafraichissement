@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Test App Update & What's New</title>
+    <title>Test App - Update & What's New</title>
     
     <style>
         /* ============================================================
@@ -35,7 +35,20 @@
             margin-top: 20px;
             text-align: left;
             font-size: 12px;
+            line-height: 1.5;
         }
+        .sim-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        .sim-btn:hover { background-color: #2563eb; }
 
         /* ============================================================
            2. CSS DU BOUTON DE MISE À JOUR (Module Universel)
@@ -143,19 +156,17 @@
 
     <!-- INTERFACE DE TEST -->
     <div class="app-card">
-        <h1>📲 App de Test</h1>
+        <h1>📲 App de Test v5.3</h1>
         <p>Cette page sert de banc d'essai pour vos modules.</p>
-        <p><strong>Instructions :</strong></p>
-        <p style="text-align: left; font-size: 14px;">
-            1. Configurez vos infos GitHub dans le code.<br>
-            2. Cliquez sur le bouton vert en bas à droite.<br>
-            3. Observez le rechargement et l'apparition du Pop-up.
-        </p>
         
         <div class="status-box">
+            <div id="debug-timer">⏳ Prochaine vérification : 60s</div>
             <div id="debug-url">URL Params: Aucun</div>
             <div id="debug-github">GitHub: En attente...</div>
+            <div id="debug-version" style="margin-top:5px; border-top:1px solid #ccc; padding-top:5px;">Version Locale: ...</div>
         </div>
+        
+        <button class="sim-btn" onclick="triggerUpdateUI()">🔔 Simuler une Alerte Visuelle</button>
     </div>
 
     <!-- MODULE UPDATE (Bouton) -->
@@ -193,7 +204,7 @@
         const GITHUB_USERNAME = 'antoto2021'; // ex: 'VotrePseudo'
         const GITHUB_REPO     = 'Appli-test-bouton-rafraichissement';        // ex: 'NomDuRepo'
         
-        const CHECK_DELAY     = 1 * 60 * 1000; // 1 minute (Modifié selon demande)
+        const CHECK_DELAY     = 1 * 60 * 1000; // 1 minute
 
         // ============================================================
 
@@ -201,6 +212,7 @@
         let activeUpdates = [{ icon: "🚀", title: "Mise à jour réussie", desc: "Le système fonctionne, mais aucune note de version spécifique n'a été trouvée sur GitHub." }];
         let currentSlide = 0;
         let currentVersionDate = null;
+        let timerInterval = null;
 
         // --- INITIALISATION ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -228,25 +240,46 @@
             try {
                 const response = await fetch(window.location.href, { method: 'HEAD', cache: 'force-cache' });
                 currentVersionDate = response.headers.get('Last-Modified');
+                document.getElementById('debug-version').innerText = "Version Locale : " + (currentVersionDate || "Inconnue (Test local)");
                 console.log("Version locale : " + currentVersionDate);
-            } catch (e) { console.log("Mode local/offline"); }
+            } catch (e) { 
+                console.log("Mode local/offline"); 
+                document.getElementById('debug-version').innerText = "Version Locale : Erreur lecture";
+            }
 
-            // Lancer le timer unique de 1 min
-            setTimeout(checkForUpdates, CHECK_DELAY);
+            // Lancer le timer unique de 1 min avec compte à rebours visuel
+            let secondsLeft = CHECK_DELAY / 1000;
+            const timerEl = document.getElementById('debug-timer');
+            
+            timerInterval = setInterval(() => {
+                secondsLeft--;
+                timerEl.innerText = `⏳ Prochaine vérification : ${secondsLeft}s`;
+                if(secondsLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timerEl.innerText = "🔍 Vérification en cours...";
+                    checkForUpdates();
+                }
+            }, 1000);
         }
 
         async function checkForUpdates() {
             console.log("Vérification maj...");
+            const debugEl = document.getElementById('debug-version');
+            
             try {
                 const url = window.location.href.split('?')[0] + '?check=' + Date.now();
                 const response = await fetch(url, { method: 'HEAD' });
                 const newVersionDate = response.headers.get('Last-Modified');
 
+                debugEl.innerText += `\nVersion Serveur : ${newVersionDate}`;
+
                 if (currentVersionDate && newVersionDate && newVersionDate !== currentVersionDate) {
                     console.log("Nouvelle version détectée, affichage alerte...");
+                    debugEl.innerText += "\n✅ DIFFÉRENCE DÉTECTÉE -> Trigger UI";
                     triggerUpdateUI();
                 } else {
                     console.log("Pas de maj.");
+                    debugEl.innerText += "\n❌ Aucune différence (À jour)";
                 }
             } catch (error) { console.error(error); }
         }
@@ -260,9 +293,10 @@
             dot.style.display = 'block';
             alertBox.style.display = 'flex';
             
-            // Relance l'animation
+            // Relance l'animation de manière forcée
             arrow.classList.remove('bouncing');
-            void arrow.offsetWidth; // Force le reflow CSS
+            // Hack pour forcer le navigateur à recalculer le style (Reflow)
+            void arrow.offsetWidth; 
             arrow.classList.add('bouncing');
         }
 
