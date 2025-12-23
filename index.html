@@ -190,10 +190,10 @@
         // ⚠️ ZONE DE CONFIGURATION UTILISATEUR ⚠️
         // ============================================================
         
-        const GITHUB_USERNAME = 'antoto2021'; // ex: 'VotrePseudo'
-        const GITHUB_REPO     = 'Appli-test-bouton-rafraichissement';        // ex: 'NomDuRepo'
+        const GITHUB_USERNAME = 'VOTRE_NOM_UTILISATEUR'; // ex: 'VotrePseudo'
+        const GITHUB_REPO     = 'VOTRE_NOM_REPO';        // ex: 'NomDuRepo'
         
-        const CHECK_DELAY     = 0.5 * 60 * 1000; // 3 minutes
+        const CHECK_DELAY     = 1 * 60 * 1000; // 1 minute (Modifié selon demande)
 
         // ============================================================
 
@@ -243,6 +243,7 @@
                 const newVersionDate = response.headers.get('Last-Modified');
 
                 if (currentVersionDate && newVersionDate && newVersionDate !== currentVersionDate) {
+                    console.log("Nouvelle version détectée, affichage alerte...");
                     triggerUpdateUI();
                 } else {
                     console.log("Pas de maj.");
@@ -255,13 +256,14 @@
             const alertBox = document.getElementById('updateAlert');
             const arrow = document.querySelector('.arrow-pointer');
 
-            if (dot.style.display !== 'block') {
-                dot.style.display = 'block';
-                alertBox.style.display = 'flex';
-                arrow.classList.remove('bouncing');
-                void arrow.offsetWidth; 
-                arrow.classList.add('bouncing');
-            }
+            // Force l'affichage des éléments
+            dot.style.display = 'block';
+            alertBox.style.display = 'flex';
+            
+            // Relance l'animation
+            arrow.classList.remove('bouncing');
+            void arrow.offsetWidth; // Force le reflow CSS
+            arrow.classList.add('bouncing');
         }
 
         function forceUpdate() {
@@ -281,7 +283,7 @@
             // Afficher modal avec loader
             const overlay = document.getElementById('wn-overlay');
             overlay.style.display = 'flex';
-            setTimeout(() => overlay.classList.add('show-modal'), 5);
+            setTimeout(() => overlay.classList.add('show-modal'), 10);
 
             // Récupérer données GitHub
             await fetchGitHubCommit();
