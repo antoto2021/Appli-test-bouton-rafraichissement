@@ -193,7 +193,7 @@
         const GITHUB_USERNAME = 'antoto2021'; // ex: 'VotrePseudo'
         const GITHUB_REPO     = 'Appli-test-bouton-rafraichissement';        // ex: 'NomDuRepo'
         
-        const CHECK_DELAY     = 1 * 60 * 1000; // 3 minutes
+        const CHECK_DELAY     = 0.5 * 60 * 1000; // 3 minutes
 
         // ============================================================
 
@@ -281,7 +281,7 @@
             // Afficher modal avec loader
             const overlay = document.getElementById('wn-overlay');
             overlay.style.display = 'flex';
-            setTimeout(() => overlay.classList.add('show-modal'), 10);
+            setTimeout(() => overlay.classList.add('show-modal'), 5);
 
             // Récupérer données GitHub
             await fetchGitHubCommit();
